@@ -4,8 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { nip19 } from 'nostr-tools';
 import NDK from '@nostr-dev-kit/ndk';
 import { Container, Typography, Avatar, Button, Paper, Box, IconButton, Divider } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import SettingsIcon from '@mui/icons-material/Settings';
+import LogoutIcon from '@mui/icons-material/Logout'; // Icône pour le bouton de déconnexion
 
 interface User {
     name: string;
@@ -13,8 +12,6 @@ interface User {
     privateKey?: string;
     about?: string;
     image?: string;
-    followers?: number;
-    following?: number;
 }
 
 const fetchUserProfile = async (npub: string): Promise<User | null> => {
@@ -57,8 +54,6 @@ const fetchUserProfile = async (npub: string): Promise<User | null> => {
             privateKey: localStorage.getItem('privateKey') || '',
             about: parsed.about,
             image: parsed.picture,
-            followers: parsed.followers || 0,
-            following: parsed.following || 0,
         };
 
         return user;
@@ -74,7 +69,6 @@ const ProfilePage: React.FC = () => {
     const [showFullPrivateKey, setShowFullPrivateKey] = useState<boolean>(false);
 
     useEffect(() => {
-        // Récupération de la clé publique depuis le localStorage
         const publicKey = localStorage.getItem('publicKey');
 
         if (publicKey) {
@@ -83,7 +77,6 @@ const ProfilePage: React.FC = () => {
                 setUser(profile);
                 setLoading(false);
 
-                // Log user profile details to console
                 if (profile) {
                     console.log("User Profile:", profile);
                 }
@@ -104,6 +97,10 @@ const ProfilePage: React.FC = () => {
         setShowFullPrivateKey(prevState => !prevState);
     };
 
+    const handleLogout = () => {
+        localStorage.clear(); // Efface le localStorage
+    };
+
     if (loading) {
         return <Typography variant="h6" align="center">Loading profile...</Typography>;
     }
@@ -115,131 +112,104 @@ const ProfilePage: React.FC = () => {
     return (
         <Container
             component={Paper}
-            elevation={3}
+            elevation={6}
             sx={{
                 padding: 3,
-                maxWidth: 350, // Ajuste la largeur pour un cadre plus large
+                maxWidth: 400, // Largeur légèrement plus large pour mieux contenir le contenu
                 margin: 'auto',
                 marginTop: 4,
-                bgcolor: '#ffffff', // Cadre blanc
-                color: '#000000', // Texte noir
-                borderRadius: 2, // Coins arrondis pour un meilleur style
+                bgcolor: '#f9f9f9', // Couleur de fond légère
+                color: '#333', // Texte sombre pour une meilleure lisibilité
+                borderRadius: 2,
+                boxShadow: 3, // Ombre pour un effet de profondeur
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center'
+                alignItems: 'center',
+                textAlign: 'center' // Centrer le texte
             }}
         >
             <Box
                 sx={{
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
                     width: '100%',
                     marginBottom: 4
                 }}
             >
-                <Box
+                <Avatar
+                    src={user.image}
+                    alt={user.name}
                     sx={{
-                        display: 'flex',
-                        alignItems: 'center'
+                        width: 120,
+                        height: 120,
+                        mb: 2,
+                        border: '3px solid #007bff' // Bordure pour l'avatar
                     }}
                 >
-                    {user.image ? (
-                        <Avatar
-                            src={user.image}
-                            alt={user.name}
-                            sx={{
-                                width: 100,
-                                height: 100,
-                                marginRight: 2
-                            }}
-                        />
-                    ) : (
-                        <Avatar
-                            sx={{
-                                width: 100,
-                                height: 100,
-                                marginRight: 2
-                            }}
-                        >
-                            {user.name ? user.name[0] : 'U'}
-                        </Avatar>
-                    )}
-                    <Box>
-                        <Typography
-                            variant="h5"
-                            sx={{
-                                marginBottom: 1
-                            }}
-                        >
-                            {user.name}
-                        </Typography>
-                        <Typography
-                            variant="body2"
-                            color="text.secondary"
-                        >
-                            {user.about}
-                        </Typography>
-                    </Box>
-                </Box>
-                <Box>
-                    <IconButton>
-                        <EditIcon />
-                    </IconButton>
-                    <IconButton>
-                        <SettingsIcon />
-                    </IconButton>
-                </Box>
+                    {!user.image && user.name ? user.name[0] : 'U'}
+                </Avatar>
+                <Typography
+                    variant="h4"
+                    sx={{ mb: 1 }}
+                >
+                    {user.name}
+                </Typography>
+                <Typography
+                    variant="body1"
+                    color="text.secondary"
+                >
+                    {user.about || 'No description available.'}
+                </Typography>
             </Box>
-            <Divider sx={{ marginBottom: 2 }} />
-            <Box sx={{ width: '100%' }}>
-                <Typography variant="subtitle1" sx={{ marginBottom: 2 }}>
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{ width: '100%', mb: 4 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
                     <strong>Public Key:</strong>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                            {showFullPublicKey ? user.publicKey : `${user.publicKey.substring(0, 10)}...`}
-                        </Typography>
-                        <Button
-                            variant="outlined"
-                            onClick={togglePublicKeyVisibility}
-                        >
-                            {showFullPublicKey ? 'Hide' : 'Show'}
-                        </Button>
-                    </Box>
                 </Typography>
-                <Typography variant="subtitle1">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                        {showFullPublicKey ? user.publicKey : `${user.publicKey.substring(0, 10)}...`}
+                    </Typography>
+                    <Button
+                        variant="outlined"
+                        onClick={togglePublicKeyVisibility}
+                    >
+                        {showFullPublicKey ? 'Hide' : 'Show'}
+                    </Button>
+                </Box>
+                <Typography variant="subtitle1" sx={{ mt: 2 }}>
                     <strong>Private Key:</strong>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                            {showFullPrivateKey ? user.privateKey : `${user.privateKey?.substring(0, 10)}...`}
-                        </Typography>
-                        <Button
-                            variant="outlined"
-                            onClick={togglePrivateKeyVisibility}
-                        >
-                            {showFullPrivateKey ? 'Hide' : 'Show'}
-                        </Button>
-                    </Box>
                 </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                        {showFullPrivateKey ? user.privateKey : `${user.privateKey?.substring(0, 10)}...`}
+                    </Typography>
+                    <Button
+                        variant="outlined"
+                        onClick={togglePrivateKeyVisibility}
+                    >
+                        {showFullPrivateKey ? 'Hide' : 'Show'}
+                    </Button>
+                </Box>
             </Box>
-            <Divider sx={{ marginBottom: 2}} />
-            <Box
+            <Divider sx={{ my: 2 }} />
+            <Button
+                variant="contained"
+                color="primary"
+                startIcon={<LogoutIcon />}
+                onClick={handleLogout}
+                component="a"
+                href="/login"
                 sx={{
                     width: '100%',
-                    display: 'flex',
-                    justifyContent: 'space-between', // Aligns items side by side with space between
-                    gap: 2, // Adds space between the items
-                    marginBottom: 4
+                    mt: 2,
+                    textAlign: 'center',
+                    padding: 1.5
                 }}
             >
-                <Typography variant="subtitle1" sx={{ textAlign: 'center', flex: 1 }}>
-                    <strong>Followers:</strong> {user.followers || 0}
-                </Typography>
-                <Typography variant="subtitle1" sx={{ textAlign: 'center', flex: 1 }}>
-                    <strong>Following:</strong> {user.following || 0}
-                </Typography>
-            </Box>
-            <Divider sx={{ marginBottom: 2}} />
+                Log out
+            </Button>
         </Container>
     );
 };

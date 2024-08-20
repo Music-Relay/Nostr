@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { NDKProvider } from "@/hooks/useNDK";
+import ResponsiveAppBar from "@/components/NavBar/NavBar";
+import { Box } from "@mui/material";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +20,18 @@ export default function RootLayout({
   return (
     <NDKProvider>
       <html lang="en">
-        <body className={inter.className}>{children}</body>
+        <body className={inter.className}>
+          <ResponsiveAppBar />
+          <Box
+            display={"flex"}
+            flexDirection={"column"}
+            minHeight={"100vh"}
+          >
+            <Box flexGrow={1}>
+              {children}
+            </Box>
+          </Box>
+        </body>
       </html>
     </NDKProvider>
   );

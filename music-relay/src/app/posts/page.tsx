@@ -2,27 +2,42 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useNDK } from "@/hooks/useNDK";
-import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKFilter, NDKKind, NDKTag } from "@nostr-dev-kit/ndk";
 import { Box, Button, Card, CardContent, Typography, TextField, List, ListItem, Avatar, CircularProgress } from "@mui/material";
 import { AttachFile, Send, GetApp, VisibilityOff, Visibility } from "@mui/icons-material";
 import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 
-interface ForumEventProps {
-    event: NDKEvent;
-    author: { name: string; image?: string } | null;
+interface Author {
+    name: string;
+    image?: string;
 }
 
-const ForumEvent: React.FC<ForumEventProps> = ({ event, author }) => {
-    const rawEvent = event.rawEvent();
-    const content = rawEvent.content;
+interface Comment {
+    id: string;
+    content: string;
+    author: Author | null;
+}
 
-    const fileTag = rawEvent.tags.find(tag => tag[0] === "musicxml" || tag[0] === "pdf");
-    const fileData = fileTag ? fileTag[1] : null;
-    const fileType = fileTag ? fileTag[0] : null;
+interface ForumEventProps {
+    event: NDKEvent;
+    author: Author | null;
+    comments: Comment[];
+    onCommentSubmit: (eventId: string, content: string) => void;
+}
+
+const ForumEvent = ({ event, author, comments, onCommentSubmit }: ForumEventProps) => {
+    const rawEvent = event.rawEvent();
+    const content: string = rawEvent.content;
+
+    const fileTag = rawEvent.tags.find((tag: NDKTag) => tag[0] === "musicxml" || tag[0] === "pdf");
+    const fileData: string | null = fileTag ? fileTag[1] : null;
+    const fileType: string | null = fileTag ? fileTag[0] : null;
 
     const osmdContainerRef = useRef<HTMLDivElement | null>(null);
     const [osmd, setOsmd] = useState<OpenSheetMusicDisplay | null>(null);
     const [isSheetVisible, setIsSheetVisible] = useState<boolean>(false);
+
+    const [existsPrivateKey, setExistsPrivateKey] = useState<boolean>(false);
 
     useEffect(() => {
         if (fileType === "musicxml" && fileData && isSheetVisible) {
@@ -36,8 +51,21 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event, author }) => {
         }
     }, [fileData, fileType, isSheetVisible]);
 
+    useEffect(() => {
+        setExistsPrivateKey(!!localStorage.getItem("privateKey"));
+    }, []);
+
     const toggleSheetVisibility = () => {
         setIsSheetVisible(!isSheetVisible);
+    };
+
+    const [commentContent, setCommentContent] = useState<string>("");
+
+    const handleCommentSubmit = () => {
+        if (commentContent.trim()) {
+            onCommentSubmit(event.id, commentContent);
+            setCommentContent(""); // Clear the comment field after submission
+        }
     };
 
     return (
@@ -94,28 +122,71 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event, author }) => {
                 )}
                 {fileType === "pdf" && isSheetVisible && (
                     <iframe
-                        src={fileData || ""}
+                        src={fileData ?? ""}
                         width="100%"
                         height="1000px"
                         title="PDF"
                         style={{ marginTop: 10, maxWidth: '100%' }}
                     />
                 )}
+
+                <Box sx={{ marginTop: 3 }}>
+                    {comments.length > 0 && (
+                        <>
+                            <Typography variant="h6">Comments:</Typography>
+                            <List>
+                                {comments.map((comment) => (
+                                    <ListItem key={comment.id} sx={{ display: 'flex', alignItems: 'flex-start', marginBottom: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                                            <Avatar src={comment.author?.image} alt={comment.author?.name} sx={{ marginRight: 2 }}>
+                                                {!comment.author?.image && comment.author?.name[0]}
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                                    {comment.author?.name}
+                                                </Typography>
+                                                <Typography variant="body2">{comment.content}</Typography>
+                                            </Box>
+                                        </Box>
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </>
+                    )}
+
+                    {existsPrivateKey && (
+                        <TextField
+                            placeholder="Write a comment..."
+                            variant="outlined"
+                            fullWidth
+                            value={commentContent}
+                            onChange={(e) => setCommentContent(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleCommentSubmit();
+                                }
+                            }}
+                        />
+                    )}
+                </Box>
             </CardContent>
         </Card>
     );
 };
 
-export default function Posts() {
+const Posts = () => {
     const [events, setEvents] = useState<NDKEvent[]>([]);
     const [userProfiles, setUserProfiles] = useState<{ [pubkey: string]: { name: string; image?: string } | null }>({});
     const [loading, setLoading] = useState(true);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [fileData, setFileData] = useState<string | null>(null);
     const [newEventContent, setNewEventContent] = useState<string>("");
+    const [comments, setComments] = useState<{ [eventId: string]: { id: string; content: string; author: { name: string; image?: string } | null }[] }>({});
 
     const { subscribeAndHandle, publishEvent, fetchUserProfile } = useNDK();
-    
+
+    const [existsPrivateKey, setExistsPrivateKey] = useState<boolean>(false);
+
     useEffect(() => {
         const fetchData = async () => {
             const filter: NDKFilter = {
@@ -124,15 +195,19 @@ export default function Posts() {
             };
     
             const handler = async (event: NDKEvent) => {
-                // Check if the event is already in the list to avoid duplicates
+                const eventId = event.id;
+
+                // Update events
                 setEvents(prevEvents => {
-                    if (prevEvents.some(e => e.id === event.id)) {
-                        return prevEvents;
+                    const existingEvent = prevEvents.find(e => e.id === eventId);
+                    if (existingEvent) {
+                        return prevEvents.map(e => (e.id === eventId ? event : e));
                     } else {
                         return [...prevEvents, event];
                     }
                 });
-    
+
+                // Fetch user profile for event author
                 const npub = event.author?.npub;
                 if (npub && !userProfiles[npub]) {
                     if (fetchUserProfile) {
@@ -143,6 +218,12 @@ export default function Posts() {
                         }));
                     }
                 }
+
+                // Fetch comments for this event
+                fetchCommentsForEvent(eventId);
+
+                // Sort events by timestamp
+                setEvents(prevEvents => prevEvents.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)));
             };
     
             subscribeAndHandle(filter, handler, { closeOnEose: true });
@@ -151,6 +232,35 @@ export default function Posts() {
     
         fetchData();
     }, [userProfiles]);
+
+    useEffect(() => {
+        events.forEach(event => fetchCommentsForEvent(event.id));
+    }, [events]);
+
+    useEffect(() => {
+        setExistsPrivateKey(!!localStorage.getItem("privateKey"));
+    }, []);
+
+    const fetchCommentsForEvent = (eventId: string) => {
+        const filter: NDKFilter = {
+            kinds: [NDKKind.Text],
+            "#e": [eventId],  // Fetch comments linked to the event
+        };
+
+        subscribeAndHandle(filter, async (commentEvent) => {
+            const commentAuthorNpub = commentEvent.author?.npub;
+            const commentAuthorProfile = commentAuthorNpub ? await fetchUserProfile(commentAuthorNpub) : null;
+
+            setComments(prevComments => {
+                const existingComments = prevComments[eventId] || [];
+                // Ensure no duplicate comments are added
+                if (existingComments.some(c => c.id === commentEvent.id)) {
+                    return prevComments; // No need to add duplicate comment
+                }
+                return { ...prevComments, [eventId]: [...existingComments, { id: commentEvent.id, content: commentEvent.content, author: commentAuthorProfile }] };
+            });
+        });
+    };
 
     const attachFile = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -182,6 +292,14 @@ export default function Posts() {
         publishEvent(NDKKind.Text, newEventContent, tags);
         setNewEventContent("");
         setSelectedFile(null);
+
+        // Refresh the page to show the new post
+        window.location.reload();
+    };
+
+    const handleCommentSubmit = (eventId: string, content: string) => {
+        const tags = [["e", eventId]];  // Tag comment with event ID
+        publishEvent(NDKKind.Text, content, tags);
     };
 
     return (
@@ -189,7 +307,10 @@ export default function Posts() {
             <Typography variant="h3" textAlign="center" marginTop={5}>Forum</Typography>
 
             <Box sx={{ margin: 10 }}>
-                <Typography variant="h4">Create Event</Typography>
+
+                {existsPrivateKey && (
+                <>
+                <Typography variant="h4">Create a post</Typography>
                 <TextField
                     id="newEvent"
                     multiline
@@ -207,7 +328,7 @@ export default function Posts() {
                     style={{ display: 'none' }}
                     id="attach-file"
                 />
-                <Box display="flex" alignItems="center" marginBottom={2}>
+                <Box display="flex" alignItems="center" marginBottom={15}>
                     <label htmlFor="attach-file">
                         <Button
                             variant="contained"
@@ -237,18 +358,25 @@ export default function Posts() {
                         Post
                     </Button>
                 </Box>
+                </>
+                )}
 
-                <Box sx={{ marginTop: 15 }}>
-                    <Typography variant="h5" gutterBottom>Most Recent Events</Typography>
+                <Box>
+                    <Typography variant="h4" gutterBottom>Most recent posts</Typography>
                     {loading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                             <CircularProgress />
                         </Box>
                     ) : (
                         <List>
-                            {events.slice().reverse().map((event, index) => (
+                            {events.map((event, index) => (
                                 <ListItem key={index} alignItems="flex-start">
-                                    <ForumEvent event={event} author={userProfiles[event.author?.npub || ""]} />
+                                    <ForumEvent
+                                        event={event}
+                                        author={userProfiles[event.author?.npub || ""]}
+                                        comments={comments[event.id] || []} // Pass the comment list
+                                        onCommentSubmit={handleCommentSubmit}
+                                    />
                                 </ListItem>
                             ))}
                         </List>
@@ -257,4 +385,6 @@ export default function Posts() {
             </Box>
         </>
     );
-}
+};
+
+export default Posts;

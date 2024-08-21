@@ -15,6 +15,7 @@ import MenuItem from '@mui/material/MenuItem';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 import Link from 'next/link';
+import { redirect } from 'next/dist/server/api-utils';
 
 function ResponsiveAppBar() {
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
@@ -33,6 +34,12 @@ function ResponsiveAppBar() {
 
   const handleCloseUserMenu = () => {
     setAnchorElUser(null);
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    // redirect to login page
+    window.location.href = '/login';
   };
 
   const privateKey = typeof window !== 'undefined' ? localStorage.getItem('privateKey') : null;
@@ -170,16 +177,13 @@ function ResponsiveAppBar() {
                   <a href='/profile'><Typography textAlign="center">Profile</Typography></a>
                 </MenuItem>
                 <MenuItem key={'Signup'} onClick={handleCloseUserMenu}>
-                  <a href='/logout'><Typography textAlign="center">Log out</Typography></a>
+                  <a onClick={handleLogout}><Typography textAlign="center">Log out</Typography></a>
                 </MenuItem>
               </div>
             ) : (
               <div>
                 <MenuItem key={'Login'} onClick={handleCloseUserMenu}>
                   <a href='/login'><Typography textAlign="center">Log in</Typography></a>
-                </MenuItem>
-                <MenuItem key={'Signup'} onClick={handleCloseUserMenu}>
-                  <a href='/signup'><Typography textAlign="center">Sign up</Typography></a>
                 </MenuItem>
               </div>
             )}

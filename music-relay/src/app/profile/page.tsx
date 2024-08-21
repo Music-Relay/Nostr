@@ -130,6 +130,9 @@ const ProfilePage: React.FC = () => {
                     maxWidth: 500,
                     margin: 'auto',
                     marginTop: 4,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
                 }}
             >
                 <Box
@@ -138,6 +141,7 @@ const ProfilePage: React.FC = () => {
                         flexDirection: 'column',
                         alignItems: 'center',
                         marginBottom: 4,
+                        textAlign: 'center'
                     }}
                 >
                     <Avatar
@@ -168,13 +172,13 @@ const ProfilePage: React.FC = () => {
                     </Typography>
                 </Box>
                 <Divider sx={{ my: 3 }} />
-                <Stack spacing={3} sx={{ width: '100%', textAlign: 'left' }}>
+                <Stack spacing={3} sx={{ width: '100%', textAlign: 'center' }}>
                     <Box>
                         <Typography variant="subtitle1" sx={{ mb: 1 }}>
                             <strong>Public Key:</strong>
                         </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Typography variant="body2">
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography variant="body2" sx={{ mr: 2 }}>
                                 {showFullPublicKey ? user.publicKey : `${user.publicKey.substring(0, 10)}...`}
                             </Typography>
                             <Button
@@ -196,8 +200,8 @@ const ProfilePage: React.FC = () => {
                         <Typography variant="subtitle1" sx={{ mb: 1 }}>
                             <strong>Private Key:</strong>
                         </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Typography variant="body2">
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography variant="body2" sx={{ mr: 2 }}>
                                 {showFullPrivateKey ? user.privateKey : `${user.privateKey?.substring(0, 10)}...`}
                             </Typography>
                             <Button

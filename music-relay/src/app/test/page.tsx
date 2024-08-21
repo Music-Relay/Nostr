@@ -62,18 +62,26 @@ const PostPage: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-    // Vous pouvez obtenir npub de diverses manières, ici il est codé en dur
-    const npub = 'npub1l4z7409vt0x3ma3kctf3gwhquv2jxxyr9l8zph35pylmy4y40qvqklr7sh';
-
     useEffect(() => {
-        const fetchUserProfile = async () => {
-            const profile = await getProfil(npub);
-            setUser(profile);
-            setLoading(false);
-        };
+        // Récupération de la clé publique depuis le localStorage
+        const npub = localStorage.getItem('publicKey');
 
-        fetchUserProfile();
-    }, [npub]);
+        // Log du contenu du localStorage pour debug
+        console.log('Contenu du localStorage:', localStorage);
+
+        if (npub) {
+            const fetchUserProfile = async () => {
+                const profile = await getProfil(npub);
+                setUser(profile);
+                setLoading(false);
+            };
+
+            fetchUserProfile();
+        } else {
+            console.error('Clé publique npub non trouvée dans le localStorage.');
+            setLoading(false);
+        }
+    }, []);
 
     if (loading) {
         return <p>Loading profile...</p>;

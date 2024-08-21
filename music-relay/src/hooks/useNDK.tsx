@@ -1,18 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import NDK, {
   NDKEvent,
   NDKFilter,
   NDKKind,
   NDKSubscriptionOptions,
+  NDKPrivateKeySigner,
 } from "@nostr-dev-kit/ndk";
-import { getEventHash, signEvent } from "nostr-tools";
 
 // Find relays at https://nostr.watch
-const defaultRelays = ["wss://lunchbox.sandwich.farm"];
+const defaultRelays = [
+  "wss://relay.nostromo.social",
+  "wss://relay.damus.io",
+  "wss://relay.primal.net",
+];
 
-// Define the data that will be returned by useNDK();
 type NDKContextType = {
   ndk: NDK;
   publishEvent: (
@@ -27,22 +30,29 @@ type NDKContextType = {
   ) => void;
 };
 
-// define this outside of the below NDKProvider component so that it is in scope for useNDK()
-let NDKContext: React.Context<NDKContextType>;
+let NDKContext = React.createContext<NDKContextType>({} as NDKContextType);
 
 export const NDKProvider = ({ children }: { children: React.ReactNode }) => {
-  const ndkLocal = new NDK({
-    explicitRelayUrls: defaultRelays,
-  });
-
+  const ndkLocal = new NDK({ explicitRelayUrls: defaultRelays });
   const ndk = React.useRef(ndkLocal);
 
-  ndk.current
-    .connect()
-    .then(() => console.log("Connected to NDK"))
-    .catch(() => console.log("Failed to connect to NDK"));
+  useEffect(() => {
+    ndk.current
+      .connect()
+      .then(() => console.log("Connected to NDK"))
+      .catch(() => console.log("Failed to connect to NDK"));
+  }, []);
 
-  const privateKey = "votre-clé-privée-ici";
+  const getSigner = (): NDKPrivateKeySigner | null => {
+    const privateKey = localStorage.getItem("privateKey");
+    if (privateKey) {
+      console.log("Private key found in localStorage.");
+      return new NDKPrivateKeySigner(privateKey);
+    } else {
+      console.error("No private key found in localStorage.");
+      return null;
+    }
+  };
 
   const subscribeAndHandle = (
     filter: NDKFilter,
@@ -58,31 +68,26 @@ export const NDKProvider = ({ children }: { children: React.ReactNode }) => {
     content: string,
     tags: string[][] = []
   ) => {
+    const signer = getSigner();
+    if (!signer) {
+      console.error("No signer available, event cannot be signed.");
+      return;
+    }
+
     const ndkEvent = new NDKEvent(ndk.current);
     ndkEvent.kind = kind;
     ndkEvent.content = content;
     ndkEvent.tags = tags;
+    await ndkEvent.sign(signer);
 
-    // Créer un événement brut
-    const rawEvent = {
-      kind: ndkEvent.kind,
-      content: ndkEvent.content,
-      tags: ndkEvent.tags,
-      pubkey: ndk.current.signer.getPublicKey(),
-      created_at: Math.floor(Date.now() / 1000),
-    };
+    try {
+      console.log("Event signed successfully:", ndkEvent);
 
-    // Générer le hash de l'événement
-    rawEvent.id = getEventHash(rawEvent);
-
-    // Signer l'événement
-    rawEvent.sig = signEvent(rawEvent, privateKey);
-
-    ndkEvent.rawEvent = rawEvent; // Assigner l'événement signé
-
-    ndkEvent.publish();
-
-    console.log("Published event", ndkEvent);
+      await ndkEvent.publish();
+      console.log("Published event", ndkEvent);
+    } catch (error) {
+      console.error("Error signing or publishing event:", error);
+    }
   };
 
   const contextValue = {
@@ -90,8 +95,6 @@ export const NDKProvider = ({ children }: { children: React.ReactNode }) => {
     publishEvent,
     subscribeAndHandle,
   };
-
-  NDKContext = React.createContext(contextValue);
 
   return (
     <NDKContext.Provider value={contextValue}>{children}</NDKContext.Provider>

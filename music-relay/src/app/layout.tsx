@@ -3,7 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { NDKProvider } from "@/hooks/useNDK";
 import ResponsiveAppBar from "@/components/NavBar/NavBar";
-import { Box } from "@mui/material";
+import { Box, ThemeProvider } from "@mui/material";
+import theme from "@/utils/theme";
 
 const inter = Inter({ subsets: ["latin"] });
 

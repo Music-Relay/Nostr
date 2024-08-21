@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import { nip19 } from 'nostr-tools';
 import NDK from '@nostr-dev-kit/ndk';
-import { Container, Typography, Avatar, Button, Paper, Box, IconButton, Divider } from '@mui/material';
-import LogoutIcon from '@mui/icons-material/Logout'; // Icône pour le bouton de déconnexion
+import { Container, Typography, Avatar, Button, Paper, Box, Divider, Stack, CircularProgress, ThemeProvider } from '@mui/material';
+import LogoutIcon from '@mui/icons-material/Logout';
+import theme from '@/utils/theme'; // Assurez-vous que le chemin est correct
 
 interface User {
     name: string;
@@ -102,7 +103,17 @@ const ProfilePage: React.FC = () => {
     };
 
     if (loading) {
-        return <Typography variant="h6" align="center">Loading profile...</Typography>;
+        return (
+            <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                minHeight="100vh"
+                bgcolor={theme.palette.background.default}
+            >
+                <CircularProgress size={60} color="primary" />
+            </Box>
+        );
     }
 
     if (!user) {
@@ -110,107 +121,124 @@ const ProfilePage: React.FC = () => {
     }
 
     return (
-        <Container
-            component={Paper}
-            elevation={6}
-            sx={{
-                padding: 3,
-                maxWidth: 400, // Largeur légèrement plus large pour mieux contenir le contenu
-                margin: 'auto',
-                marginTop: 4,
-                bgcolor: '#f9f9f9', // Couleur de fond légère
-                color: '#333', // Texte sombre pour une meilleure lisibilité
-                borderRadius: 2,
-                boxShadow: 3, // Ombre pour un effet de profondeur
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center' // Centrer le texte
-            }}
-        >
-            <Box
+        <ThemeProvider theme={theme}>
+            <Container
+                component={Paper}
+                elevation={8}
                 sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    width: '100%',
-                    marginBottom: 4
+                    padding: 4,
+                    maxWidth: 500,
+                    margin: 'auto',
+                    marginTop: 4,
                 }}
             >
-                <Avatar
-                    src={user.image}
-                    alt={user.name}
+                <Box
                     sx={{
-                        width: 120,
-                        height: 120,
-                        mb: 2,
-                        border: '3px solid #007bff' // Bordure pour l'avatar
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        marginBottom: 4,
                     }}
                 >
-                    {!user.image && user.name ? user.name[0] : 'U'}
-                </Avatar>
-                <Typography
-                    variant="h4"
-                    sx={{ mb: 1 }}
-                >
-                    {user.name}
-                </Typography>
-                <Typography
-                    variant="body1"
-                    color="text.secondary"
-                >
-                    {user.about || 'No description available.'}
-                </Typography>
-            </Box>
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ width: '100%', mb: 4 }}>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                    <strong>Public Key:</strong>
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                        {showFullPublicKey ? user.publicKey : `${user.publicKey.substring(0, 10)}...`}
-                    </Typography>
-                    <Button
-                        variant="outlined"
-                        onClick={togglePublicKeyVisibility}
+                    <Avatar
+                        src={user.image}
+                        alt={user.name}
+                        sx={{
+                            width: 150,
+                            height: 150,
+                            mb: 3,
+                            border: '5px solid',
+                            borderColor: theme.palette.primary.main,
+                            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.5)',
+                        }}
                     >
-                        {showFullPublicKey ? 'Hide' : 'Show'}
-                    </Button>
-                </Box>
-                <Typography variant="subtitle1" sx={{ mt: 2 }}>
-                    <strong>Private Key:</strong>
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                        {showFullPrivateKey ? user.privateKey : `${user.privateKey?.substring(0, 10)}...`}
-                    </Typography>
-                    <Button
-                        variant="outlined"
-                        onClick={togglePrivateKeyVisibility}
+                        {!user.image && user.name ? user.name[0] : 'U'}
+                    </Avatar>
+                    <Typography
+                        variant="h4"
+                        sx={{ mb: 1, fontWeight: 'bold' }}
                     >
-                        {showFullPrivateKey ? 'Hide' : 'Show'}
-                    </Button>
+                        {user.name}
+                    </Typography>
+                    <Typography
+                        variant="body1"
+                        sx={{ maxWidth: 400 }}
+                    >
+                        {user.about || 'No description available.'}
+                    </Typography>
                 </Box>
-            </Box>
-            <Divider sx={{ my: 2 }} />
-            <Button
-                variant="contained"
-                color="primary"
-                startIcon={<LogoutIcon />}
-                onClick={handleLogout}
-                component="a"
-                href="/login"
-                sx={{
-                    width: '100%',
-                    mt: 2,
-                    textAlign: 'center',
-                    padding: 1.5
-                }}
-            >
-                Log out
-            </Button>
-        </Container>
+                <Divider sx={{ my: 3 }} />
+                <Stack spacing={3} sx={{ width: '100%', textAlign: 'left' }}>
+                    <Box>
+                        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                            <strong>Public Key:</strong>
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">
+                                {showFullPublicKey ? user.publicKey : `${user.publicKey.substring(0, 10)}...`}
+                            </Typography>
+                            <Button
+                                variant="contained"
+                                onClick={togglePublicKeyVisibility}
+                                sx={{
+                                    bgcolor: theme.palette.primary.dark,
+                                    color: theme.palette.background.paper,
+                                    '&:hover': {
+                                        bgcolor: theme.palette.primary.light,
+                                    },
+                                }}
+                            >
+                                {showFullPublicKey ? 'Hide' : 'Show'}
+                            </Button>
+                        </Box>
+                    </Box>
+                    <Box>
+                        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                            <strong>Private Key:</strong>
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">
+                                {showFullPrivateKey ? user.privateKey : `${user.privateKey?.substring(0, 10)}...`}
+                            </Typography>
+                            <Button
+                                variant="contained"
+                                onClick={togglePrivateKeyVisibility}
+                                sx={{
+                                    bgcolor: theme.palette.primary.dark,
+                                    color: theme.palette.background.paper,
+                                    '&:hover': {
+                                        bgcolor: theme.palette.primary.light,
+                                    },
+                                }}
+                            >
+                                {showFullPrivateKey ? 'Hide' : 'Show'}
+                            </Button>
+                        </Box>
+                    </Box>
+                </Stack>
+                <Divider sx={{ my: 3 }} />
+                <Button
+                    variant="contained"
+                    startIcon={<LogoutIcon />}
+                    onClick={handleLogout}
+                    component="a"
+                    href="/login"
+                    sx={{
+                        mt: 2,
+                        width: '100%',
+                        padding: 1.5,
+                        bgcolor: theme.palette.primary.dark,
+                        color: theme.palette.background.paper,
+                        fontWeight: 'bold',
+                        '&:hover': {
+                            bgcolor: theme.palette.primary.light,
+                        },
+                    }}
+                >
+                    Log out
+                </Button>
+            </Container>
+        </ThemeProvider>
     );
 };
 

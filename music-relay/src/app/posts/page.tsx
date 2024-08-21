@@ -10,9 +10,11 @@ import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 interface ForumEventProps {
     event: NDKEvent;
     author: { name: string; image?: string } | null;
+    comments: NDKEvent[];
+    onCommentSubmit: (eventId: string, content: string) => void;
 }
 
-const ForumEvent: React.FC<ForumEventProps> = ({ event, author }) => {
+const ForumEvent: React.FC<ForumEventProps> = ({ event, author, comments, onCommentSubmit }) => {
     const rawEvent = event.rawEvent();
     const content = rawEvent.content;
 
@@ -38,6 +40,15 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event, author }) => {
 
     const toggleSheetVisibility = () => {
         setIsSheetVisible(!isSheetVisible);
+    };
+
+    const [commentContent, setCommentContent] = useState<string>("");
+
+    const handleCommentSubmit = () => {
+        if (commentContent.trim()) {
+            onCommentSubmit(event.id, commentContent);
+            setCommentContent(""); // Clear the comment field after submission
+        }
     };
 
     return (
@@ -101,6 +112,29 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event, author }) => {
                         style={{ marginTop: 10, maxWidth: '100%' }}
                     />
                 )}
+
+                <Box sx={{ marginTop: 3 }}>
+                    <Typography variant="h6">Comments:</Typography>
+                    <List>
+                        {comments.map((comment, index) => (
+                            <ListItem key={index}>
+                                <Typography variant="body2">{comment.content}</Typography>
+                            </ListItem>
+                        ))}
+                    </List>
+                    <TextField
+                        placeholder="Write a comment..."
+                        variant="outlined"
+                        fullWidth
+                        value={commentContent}
+                        onChange={(e) => setCommentContent(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleCommentSubmit();
+                            }
+                        }}
+                    />
+                </Box>
             </CardContent>
         </Card>
     );
@@ -113,6 +147,7 @@ export default function Posts() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [fileData, setFileData] = useState<string | null>(null);
     const [newEventContent, setNewEventContent] = useState<string>("");
+    const [comments, setComments] = useState<{ [eventId: string]: NDKEvent[] }>({});
 
     const { subscribeAndHandle, publishEvent, fetchUserProfile } = useNDK();
 
@@ -124,15 +159,21 @@ export default function Posts() {
             };
 
             const handler = async (event: NDKEvent) => {
-                // Check if the event is already in the list to avoid duplicates
+                const eventId = event.id;
+
+                // Update events
                 setEvents(prevEvents => {
-                    if (prevEvents.some(e => e.id === event.id)) {
-                        return prevEvents;
+                    const existingEvent = prevEvents.find(e => e.id === eventId);
+                    if (existingEvent) {
+                        // Update existing event
+                        return prevEvents.map(e => (e.id === eventId ? event : e));
                     } else {
+                        // Add new event
                         return [...prevEvents, event];
                     }
                 });
 
+                // Fetch user profile
                 const npub = event.author?.npub;
                 if (npub && !userProfiles[npub]) {
                     const userProfile = await fetchUserProfile(npub);
@@ -141,6 +182,9 @@ export default function Posts() {
                         [npub]: userProfile,
                     }));
                 }
+
+                // Fetch comments for this event
+                fetchCommentsForEvent(eventId);
             };
 
             subscribeAndHandle(filter, handler, { closeOnEose: true });
@@ -149,6 +193,29 @@ export default function Posts() {
 
         fetchData();
     }, [userProfiles]);
+
+    useEffect(() => {
+        // Fetch all comments for all events on initial load
+        events.forEach(event => fetchCommentsForEvent(event.id));
+    }, [events]);
+
+    const fetchCommentsForEvent = (eventId: string) => {
+        const filter: NDKFilter = {
+            kinds: [NDKKind.Text],
+            "#e": [eventId],  // Fetch comments linked to the event
+        };
+
+        subscribeAndHandle(filter, (commentEvent) => {
+            setComments(prevComments => {
+                const existingComments = prevComments[eventId] || [];
+                // Check if comment is already in the list
+                if (existingComments.some(c => c.id === commentEvent.id)) {
+                    return prevComments; // No need to add duplicate comment
+                }
+                return { ...prevComments, [eventId]: [...existingComments, commentEvent] };
+            });
+        });
+    };
 
     const attachFile = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -180,6 +247,11 @@ export default function Posts() {
         publishEvent(NDKKind.Text, newEventContent, tags);
         setNewEventContent("");
         setSelectedFile(null);
+    };
+
+    const handleCommentSubmit = (eventId: string, content: string) => {
+        const tags = [["e", eventId]];  // Tag comment with event ID
+        publishEvent(NDKKind.Text, content, tags);
     };
 
     return (
@@ -246,7 +318,12 @@ export default function Posts() {
                         <List>
                             {events.slice().reverse().map((event, index) => (
                                 <ListItem key={index} alignItems="flex-start">
-                                    <ForumEvent event={event} author={userProfiles[event.author?.npub || ""]} />
+                                    <ForumEvent
+                                        event={event}
+                                        author={userProfiles[event.author?.npub || ""]}
+                                        comments={[...(comments[event.id] || [])]} // Convert Set to Array
+                                        onCommentSubmit={handleCommentSubmit}
+                                    />
                                 </ListItem>
                             ))}
                         </List>

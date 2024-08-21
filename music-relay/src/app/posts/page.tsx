@@ -94,7 +94,7 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event, author }) => {
                 )}
                 {fileType === "pdf" && isSheetVisible && (
                     <iframe
-                        src={fileData}
+                        src={fileData || ""}
                         width="100%"
                         height="1000px"
                         title="PDF"
@@ -115,14 +115,14 @@ export default function Posts() {
     const [newEventContent, setNewEventContent] = useState<string>("");
 
     const { subscribeAndHandle, publishEvent, fetchUserProfile } = useNDK();
-
+    
     useEffect(() => {
         const fetchData = async () => {
             const filter: NDKFilter = {
                 kinds: [NDKKind.Text],
                 "#t": ["music-relay-test"],
             };
-
+    
             const handler = async (event: NDKEvent) => {
                 // Check if the event is already in the list to avoid duplicates
                 setEvents(prevEvents => {
@@ -132,21 +132,23 @@ export default function Posts() {
                         return [...prevEvents, event];
                     }
                 });
-
+    
                 const npub = event.author?.npub;
                 if (npub && !userProfiles[npub]) {
-                    const userProfile = await fetchUserProfile(npub);
-                    setUserProfiles(prevProfiles => ({
-                        ...prevProfiles,
-                        [npub]: userProfile,
-                    }));
+                    if (fetchUserProfile) {
+                        const userProfile = await fetchUserProfile(npub);
+                        setUserProfiles(prevProfiles => ({
+                            ...prevProfiles,
+                            [npub]: userProfile,
+                        }));
+                    }
                 }
             };
-
+    
             subscribeAndHandle(filter, handler, { closeOnEose: true });
             setLoading(false);
         };
-
+    
         fetchData();
     }, [userProfiles]);
 

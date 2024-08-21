@@ -8,6 +8,7 @@ import NDK, {
   NDKSubscriptionOptions,
   NDKPrivateKeySigner,
 } from "@nostr-dev-kit/ndk";
+import { nip19 } from "nostr-tools";
 
 // Find relays at https://nostr.watch
 const defaultRelays = [
@@ -15,6 +16,14 @@ const defaultRelays = [
   "wss://relay.damus.io",
   "wss://relay.primal.net",
 ];
+
+interface User {
+  name: string;
+  publicKey: string;
+  privateKey?: string;
+  about?: string;
+  image?: string;
+}
 
 type NDKContextType = {
   ndk: NDK;
@@ -28,6 +37,7 @@ type NDKContextType = {
     handler: (event: NDKEvent) => void,
     opts?: NDKSubscriptionOptions
   ) => void;
+  fetchUserProfile?: (npub: string) => Promise<User | null>;
 };
 
 let NDKContext = React.createContext<NDKContextType>({} as NDKContextType);
@@ -73,6 +83,7 @@ export const NDKProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("No signer available, event cannot be signed.");
       return;
     }
+    
 
     const ndkEvent = new NDKEvent(ndk.current);
     ndkEvent.kind = kind;
@@ -90,10 +101,51 @@ export const NDKProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const fetchUserProfile = async (npub: string): Promise<User | null> => {
+
+    await ndk.current.connect().catch((error) => {
+        console.error("Error connecting to NDK", error);
+    });
+
+    const kind0Filter = (pubkey: string) => ({
+        kinds: [0],
+        authors: [pubkey],
+    });
+
+    const searchProfil = async (query: string) => {
+        let filter = {};
+
+        if (query.startsWith("npub")) {
+            const decodedNpub = nip19.decode(query);
+            const pubkey = decodedNpub.data as string;
+            filter = kind0Filter(pubkey);
+        }
+
+        console.log("SEARCH FILTER", filter);
+        return await ndk.current.fetchEvent(filter);
+    };
+
+    let profilNDK = await searchProfil(npub);
+    if (profilNDK != undefined) {
+        const parsed = JSON.parse(profilNDK.content);
+        let user: User = {
+            name: parsed.name,
+            publicKey: npub,
+            about: parsed.about,
+            image: parsed.picture,
+        };
+
+        return user;
+    } else {
+        return null;
+    }
+};
+
   const contextValue = {
     ndk: ndk.current,
     publishEvent,
     subscribeAndHandle,
+    fetchUserProfile,
   };
 
   return (

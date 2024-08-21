@@ -5,7 +5,7 @@ import { nip19 } from 'nostr-tools';
 import NDK from '@nostr-dev-kit/ndk';
 import { Container, Typography, Avatar, Button, Paper, Box, Divider, Stack, CircularProgress, ThemeProvider } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
-import theme from '@/utils/theme';
+import theme from '@/utils/theme'; // Assurez-vous que le chemin est correct
 
 interface User {
     name: string;
@@ -15,7 +15,7 @@ interface User {
     image?: string;
 }
 
-export const fetchUserProfile = async (npub: string): Promise<User | null> => {
+const fetchUserProfile = async (npub: string): Promise<User | null> => {
     const defaultRelays = [
         "wss://relay.nostromo.social",
         "wss://relay.damus.io",

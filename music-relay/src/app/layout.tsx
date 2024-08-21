@@ -21,16 +21,18 @@ export default function RootLayout({
     <NDKProvider>
       <html lang="en">
         <body className={inter.className}>
-          <ResponsiveAppBar />
-          <Box
-            display={"flex"}
-            flexDirection={"column"}
-            minHeight={"100vh"}
-          >
-            <Box flexGrow={1}>
-              {children}
-            </Box>
-          </Box>
+            <ThemeProvider theme={theme}>
+                <ResponsiveAppBar />
+                <Box
+                    display={"flex"}
+                    flexDirection={"column"}
+                    minHeight={"100vh"}
+                >
+                    <Box flexGrow={1}>
+                        {children}
+                    </Box>
+                </Box>
+            </ThemeProvider>
         </body>
       </html>
     </NDKProvider>

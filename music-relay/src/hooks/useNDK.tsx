@@ -37,7 +37,7 @@ type NDKContextType = {
     handler: (event: NDKEvent) => void,
     opts?: NDKSubscriptionOptions
   ) => void;
-  fetchUserProfile?: (npub: string) => Promise<User | null>;
+  fetchUserProfile: (npub: string) => Promise<User | null>;
 };
 
 let NDKContext = React.createContext<NDKContextType>({} as NDKContextType);

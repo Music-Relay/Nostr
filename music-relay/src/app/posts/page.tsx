@@ -2,22 +2,42 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useNDK } from "@/hooks/useNDK";
-import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKFilter, NDKKind, NDKTag } from "@nostr-dev-kit/ndk";
 import { Box, Button, Card, CardContent, Typography, TextField, List, ListItem, Avatar, CircularProgress } from "@mui/material";
 import { AttachFile, Send, GetApp, VisibilityOff, Visibility } from "@mui/icons-material";
 import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 
-const ForumEvent = ({ event, author, comments, onCommentSubmit }) => {
-    const rawEvent = event.rawEvent();
-    const content = rawEvent.content;
+interface Author {
+    name: string;
+    image?: string;
+}
 
-    const fileTag = rawEvent.tags.find(tag => tag[0] === "musicxml" || tag[0] === "pdf");
-    const fileData = fileTag ? fileTag[1] : null;
-    const fileType = fileTag ? fileTag[0] : null;
+interface Comment {
+    id: string;
+    content: string;
+    author: Author | null;
+}
+
+interface ForumEventProps {
+    event: NDKEvent;
+    author: Author | null;
+    comments: Comment[];
+    onCommentSubmit: (eventId: string, content: string) => void;
+}
+
+const ForumEvent = ({ event, author, comments, onCommentSubmit }: ForumEventProps) => {
+    const rawEvent = event.rawEvent();
+    const content: string = rawEvent.content;
+
+    const fileTag = rawEvent.tags.find((tag: NDKTag) => tag[0] === "musicxml" || tag[0] === "pdf");
+    const fileData: string | null = fileTag ? fileTag[1] : null;
+    const fileType: string | null = fileTag ? fileTag[0] : null;
 
     const osmdContainerRef = useRef<HTMLDivElement | null>(null);
     const [osmd, setOsmd] = useState<OpenSheetMusicDisplay | null>(null);
     const [isSheetVisible, setIsSheetVisible] = useState<boolean>(false);
+
+    const [existsPrivateKey, setExistsPrivateKey] = useState<boolean>(false);
 
     useEffect(() => {
         if (fileType === "musicxml" && fileData && isSheetVisible) {
@@ -30,6 +50,10 @@ const ForumEvent = ({ event, author, comments, onCommentSubmit }) => {
             });
         }
     }, [fileData, fileType, isSheetVisible]);
+
+    useEffect(() => {
+        setExistsPrivateKey(!!localStorage.getItem("privateKey"));
+    }, []);
 
     const toggleSheetVisibility = () => {
         setIsSheetVisible(!isSheetVisible);
@@ -98,7 +122,7 @@ const ForumEvent = ({ event, author, comments, onCommentSubmit }) => {
                 )}
                 {fileType === "pdf" && isSheetVisible && (
                     <iframe
-                        src={fileData}
+                        src={fileData ?? ""}
                         width="100%"
                         height="1000px"
                         title="PDF"
@@ -107,36 +131,43 @@ const ForumEvent = ({ event, author, comments, onCommentSubmit }) => {
                 )}
 
                 <Box sx={{ marginTop: 3 }}>
-                    <Typography variant="h6">Comments:</Typography>
-                    <List>
-                        {comments.map((comment) => (
-                            <ListItem key={comment.id} sx={{ display: 'flex', alignItems: 'flex-start', marginBottom: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                                    <Avatar src={comment.author?.image} alt={comment.author?.name} sx={{ marginRight: 2 }}>
-                                        {!comment.author?.image && comment.author?.name[0]}
-                                    </Avatar>
-                                    <Box>
-                                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                            {comment.author?.name}
-                                        </Typography>
-                                        <Typography variant="body2">{comment.content}</Typography>
-                                    </Box>
-                                </Box>
-                            </ListItem>
-                        ))}
-                    </List>
-                    <TextField
-                        placeholder="Write a comment..."
-                        variant="outlined"
-                        fullWidth
-                        value={commentContent}
-                        onChange={(e) => setCommentContent(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                handleCommentSubmit();
-                            }
-                        }}
-                    />
+                    {comments.length > 0 && (
+                        <>
+                            <Typography variant="h6">Comments:</Typography>
+                            <List>
+                                {comments.map((comment) => (
+                                    <ListItem key={comment.id} sx={{ display: 'flex', alignItems: 'flex-start', marginBottom: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                                            <Avatar src={comment.author?.image} alt={comment.author?.name} sx={{ marginRight: 2 }}>
+                                                {!comment.author?.image && comment.author?.name[0]}
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                                    {comment.author?.name}
+                                                </Typography>
+                                                <Typography variant="body2">{comment.content}</Typography>
+                                            </Box>
+                                        </Box>
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </>
+                    )}
+
+                    {existsPrivateKey && (
+                        <TextField
+                            placeholder="Write a comment..."
+                            variant="outlined"
+                            fullWidth
+                            value={commentContent}
+                            onChange={(e) => setCommentContent(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleCommentSubmit();
+                                }
+                            }}
+                        />
+                    )}
                 </Box>
             </CardContent>
         </Card>
@@ -153,6 +184,8 @@ const Posts = () => {
     const [comments, setComments] = useState<{ [eventId: string]: { id: string; content: string; author: { name: string; image?: string } | null }[] }>({});
 
     const { subscribeAndHandle, publishEvent, fetchUserProfile } = useNDK();
+
+    const [existsPrivateKey, setExistsPrivateKey] = useState<boolean>(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -186,6 +219,9 @@ const Posts = () => {
 
                 // Fetch comments for this event
                 fetchCommentsForEvent(eventId);
+
+                // Sort events by timestamp
+                setEvents(prevEvents => prevEvents.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)));
             };
 
             subscribeAndHandle(filter, handler, { closeOnEose: true });
@@ -198,6 +234,10 @@ const Posts = () => {
     useEffect(() => {
         events.forEach(event => fetchCommentsForEvent(event.id));
     }, [events]);
+
+    useEffect(() => {
+        setExistsPrivateKey(!!localStorage.getItem("privateKey"));
+    }, []);
 
     const fetchCommentsForEvent = (eventId: string) => {
         const filter: NDKFilter = {
@@ -250,6 +290,9 @@ const Posts = () => {
         publishEvent(NDKKind.Text, newEventContent, tags);
         setNewEventContent("");
         setSelectedFile(null);
+
+        // Refresh the page to show the new post
+        window.location.reload();
     };
 
     const handleCommentSubmit = (eventId: string, content: string) => {
@@ -262,7 +305,10 @@ const Posts = () => {
             <Typography variant="h3" textAlign="center" marginTop={5}>Forum</Typography>
 
             <Box sx={{ margin: 10 }}>
-                <Typography variant="h4">Create Event</Typography>
+
+                {existsPrivateKey && (
+                <>
+                <Typography variant="h4">Create a post</Typography>
                 <TextField
                     id="newEvent"
                     multiline
@@ -280,7 +326,7 @@ const Posts = () => {
                     style={{ display: 'none' }}
                     id="attach-file"
                 />
-                <Box display="flex" alignItems="center" marginBottom={2}>
+                <Box display="flex" alignItems="center" marginBottom={15}>
                     <label htmlFor="attach-file">
                         <Button
                             variant="contained"
@@ -310,16 +356,18 @@ const Posts = () => {
                         Post
                     </Button>
                 </Box>
+                </>
+                )}
 
-                <Box sx={{ marginTop: 15 }}>
-                    <Typography variant="h5" gutterBottom>Most Recent Events</Typography>
+                <Box>
+                    <Typography variant="h4" gutterBottom>Most recent posts</Typography>
                     {loading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                             <CircularProgress />
                         </Box>
                     ) : (
                         <List>
-                            {events.slice().reverse().map((event, index) => (
+                            {events.map((event, index) => (
                                 <ListItem key={index} alignItems="flex-start">
                                     <ForumEvent
                                         event={event}

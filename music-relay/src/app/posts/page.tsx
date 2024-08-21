@@ -3,9 +3,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useNDK } from "@/hooks/useNDK";
 import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { Box, Button, Card, CardContent, Typography, TextField, List, ListItem, ListItemText } from "@mui/material";
+import { Box, Button, Card, CardContent, Typography, TextField, List, ListItem, ListItemText, Avatar } from "@mui/material";
 import { AttachFile, Send, Download, VisibilityOff, Visibility, GetApp } from "@mui/icons-material";
 import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
+import { fetchUserProfile } from "../profile/page";
 
 interface ForumEventProps {
         event: NDKEvent;
@@ -15,13 +16,15 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event }) => {
         const rawEvent = event.rawEvent();
         const content = rawEvent.content;
 
-        // Extraire le fichier attaché s'il existe
         const fileTag = rawEvent.tags.find(tag => tag[0] === "musicxml" || tag[0] === "pdf");
         const fileData = fileTag ? fileTag[1] : null;
         const fileType = fileTag ? fileTag[0] : null;
+
         const osmdContainerRef = useRef<HTMLDivElement | null>(null);
         const [osmd, setOsmd] = useState<OpenSheetMusicDisplay | null>(null);
         const [isSheetVisible, setIsSheetVisible] = useState<boolean>(false);
+
+        const [user, setUser] = useState<{ name: string; image?: string } | null>(null);
 
         useEffect(() => {
                 if (fileType === "musicxml" && fileData && isSheetVisible) {
@@ -35,6 +38,18 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event }) => {
                 }
         }, [fileData, fileType, isSheetVisible]);
 
+        useEffect(() => {
+                const fetchUserData = async () => {
+                        const npub = event.author?.npub;
+                        if (npub) {
+                                const user = await fetchUserProfile(npub);
+                                setUser(user);
+                        }
+                };
+
+                fetchUserData();
+        }, [event.author?.npub]);
+
         const toggleSheetVisibility = () => {
                 setIsSheetVisible(!isSheetVisible);
         };
@@ -42,6 +57,14 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event }) => {
         return (
                 <Card sx={{ marginBottom: 2 }}>
                     <CardContent>
+                        {user && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
+                                        <Avatar src={user.image} alt={user.name} sx={{ marginRight: 2 }}>
+                                        {!user.image && user.name[0]}
+                                        </Avatar>
+                                        <Typography variant="h6">{user.name}</Typography>
+                                </Box>
+                        )}
                         <Typography variant="body1">{content}</Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', marginTop: 2 }}>
                             {fileData && (

@@ -15,7 +15,7 @@ interface User {
     image?: string;
 }
 
-const fetchUserProfile = async (npub: string): Promise<User | null> => {
+export const fetchUserProfile = async (npub: string): Promise<User | null> => {
     const defaultRelays = [
         "wss://relay.nostromo.social",
         "wss://relay.damus.io",

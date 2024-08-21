@@ -7,14 +7,7 @@ import { Box, Button, Card, CardContent, Typography, TextField, List, ListItem, 
 import { AttachFile, Send, GetApp, VisibilityOff, Visibility } from "@mui/icons-material";
 import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 
-interface ForumEventProps {
-    event: NDKEvent;
-    author: { name: string; image?: string } | null;
-    comments: NDKEvent[];
-    onCommentSubmit: (eventId: string, content: string) => void;
-}
-
-const ForumEvent: React.FC<ForumEventProps> = ({ event, author, comments, onCommentSubmit }) => {
+const ForumEvent = ({ event, author, comments, onCommentSubmit }) => {
     const rawEvent = event.rawEvent();
     const content = rawEvent.content;
 
@@ -116,9 +109,19 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event, author, comments, onComm
                 <Box sx={{ marginTop: 3 }}>
                     <Typography variant="h6">Comments:</Typography>
                     <List>
-                        {comments.map((comment, index) => (
-                            <ListItem key={index}>
-                                <Typography variant="body2">{comment.content}</Typography>
+                        {comments.map((comment) => (
+                            <ListItem key={comment.id} sx={{ display: 'flex', alignItems: 'flex-start', marginBottom: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                                    <Avatar src={comment.author?.image} alt={comment.author?.name} sx={{ marginRight: 2 }}>
+                                        {!comment.author?.image && comment.author?.name[0]}
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                            {comment.author?.name}
+                                        </Typography>
+                                        <Typography variant="body2">{comment.content}</Typography>
+                                    </Box>
+                                </Box>
                             </ListItem>
                         ))}
                     </List>
@@ -140,14 +143,14 @@ const ForumEvent: React.FC<ForumEventProps> = ({ event, author, comments, onComm
     );
 };
 
-export default function Posts() {
+const Posts = () => {
     const [events, setEvents] = useState<NDKEvent[]>([]);
     const [userProfiles, setUserProfiles] = useState<{ [pubkey: string]: { name: string; image?: string } | null }>({});
     const [loading, setLoading] = useState(true);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [fileData, setFileData] = useState<string | null>(null);
     const [newEventContent, setNewEventContent] = useState<string>("");
-    const [comments, setComments] = useState<{ [eventId: string]: NDKEvent[] }>({});
+    const [comments, setComments] = useState<{ [eventId: string]: { id: string; content: string; author: { name: string; image?: string } | null }[] }>({});
 
     const { subscribeAndHandle, publishEvent, fetchUserProfile } = useNDK();
 
@@ -165,15 +168,13 @@ export default function Posts() {
                 setEvents(prevEvents => {
                     const existingEvent = prevEvents.find(e => e.id === eventId);
                     if (existingEvent) {
-                        // Update existing event
                         return prevEvents.map(e => (e.id === eventId ? event : e));
                     } else {
-                        // Add new event
                         return [...prevEvents, event];
                     }
                 });
 
-                // Fetch user profile
+                // Fetch user profile for event author
                 const npub = event.author?.npub;
                 if (npub && !userProfiles[npub]) {
                     const userProfile = await fetchUserProfile(npub);
@@ -195,7 +196,6 @@ export default function Posts() {
     }, [userProfiles]);
 
     useEffect(() => {
-        // Fetch all comments for all events on initial load
         events.forEach(event => fetchCommentsForEvent(event.id));
     }, [events]);
 
@@ -205,14 +205,17 @@ export default function Posts() {
             "#e": [eventId],  // Fetch comments linked to the event
         };
 
-        subscribeAndHandle(filter, (commentEvent) => {
+        subscribeAndHandle(filter, async (commentEvent) => {
+            const commentAuthorNpub = commentEvent.author?.npub;
+            const commentAuthorProfile = commentAuthorNpub ? await fetchUserProfile(commentAuthorNpub) : null;
+
             setComments(prevComments => {
                 const existingComments = prevComments[eventId] || [];
-                // Check if comment is already in the list
+                // Ensure no duplicate comments are added
                 if (existingComments.some(c => c.id === commentEvent.id)) {
                     return prevComments; // No need to add duplicate comment
                 }
-                return { ...prevComments, [eventId]: [...existingComments, commentEvent] };
+                return { ...prevComments, [eventId]: [...existingComments, { id: commentEvent.id, content: commentEvent.content, author: commentAuthorProfile }] };
             });
         });
     };
@@ -321,7 +324,7 @@ export default function Posts() {
                                     <ForumEvent
                                         event={event}
                                         author={userProfiles[event.author?.npub || ""]}
-                                        comments={[...(comments[event.id] || [])]} // Convert Set to Array
+                                        comments={comments[event.id] || []} // Pass the comment list
                                         onCommentSubmit={handleCommentSubmit}
                                     />
                                 </ListItem>
@@ -332,4 +335,6 @@ export default function Posts() {
             </Box>
         </>
     );
-}
+};
+
+export default Posts;

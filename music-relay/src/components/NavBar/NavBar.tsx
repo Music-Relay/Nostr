@@ -50,9 +50,7 @@ function ResponsiveAppBar() {
         <Toolbar disableGutters>
 
           <Link href={"/"}>
-            <a>
-              <img src="/logo.png" alt="logo" style={{ height: '40px', width: '40px' }} />
-            </a>
+            <img src="/logo.png" alt="logo" style={{ height: '40px', width: '40px' }} />
           </Link>
 
           <Box sx={{ flexGrow: 1, display: { xs: 'flex', lg: 'none' } }}>

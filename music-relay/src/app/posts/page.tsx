@@ -191,7 +191,7 @@ const Posts = () => {
         const fetchData = async () => {
             const filter: NDKFilter = {
                 kinds: [NDKKind.Text],
-                "#t": ["music-relay-test"],
+                "#t": ["music-relay-v1"],
             };
     
             const handler = async (event: NDKEvent) => {
@@ -281,7 +281,7 @@ const Posts = () => {
     };
 
     const createEvent = () => {
-        const tags = [["t", "music-relay-test"]];
+        const tags = [["t", "music-relay-v1"]];
         if (fileData) {
             if (selectedFile?.type === "application/pdf") {
                 tags.push(["pdf", fileData]);

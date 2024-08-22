@@ -49,6 +49,12 @@ function ResponsiveAppBar() {
       <Container maxWidth="xl">
         <Toolbar disableGutters>
 
+          <Link href={"/"}>
+            <a>
+              <img src="/logo.png" alt="logo" style={{ height: '40px', width: '40px' }} />
+            </a>
+          </Link>
+
           <Box sx={{ flexGrow: 1, display: { xs: 'flex', lg: 'none' } }}>
             <IconButton
               size="large"
